@@ -280,6 +280,58 @@ email_id, subject, sender, is_spam, timestamp
 
 ---
 
+## 🔁 User Feedback Loop
+
+After every prediction, the web app asks **"Was this prediction correct?"**:
+
+* ✅ **Yes** — records the prediction as confirmed correct
+* ❌ **No** — shows a dropdown to pick the correct label (`ham`, `spam`, `smishing`), then submits the correction
+
+### How it flows
+
+```
+React Widget → POST /feedback (Node backend) → POST /feedback (Flask ML API) → feedback_store.csv
+```
+
+### `POST /feedback`
+
+Available on both the Node backend (`/feedback`, requires authentication) and the Flask ML API (`/feedback`).
+
+**Request body:**
+```json
+{
+  "text": "Congratulations! You won a free prize, click here",
+  "predicted_label": "ham",
+  "correct_label": "spam"
+}
+```
+
+**Responses:**
+* `201` — `{"message": "Feedback recorded. Thank you!"}`
+* `400` — `{"error": "Invalid feedback data"}` if `text` is empty or `correct_label` is not one of `ham`, `spam`, `smishing`
+
+Feedback is appended to `backend/feedback_store.csv` (gitignored) with columns:
+
+| Column | Description |
+|--------|-------------|
+| `text` | The original input text |
+| `predicted_label` | What the model predicted |
+| `correct_label` | What the user said it should be |
+| `submitted_at` | UTC timestamp |
+
+### Retraining the model
+
+Once enough feedback has accumulated, run:
+
+```bash
+cd backend
+python retrain.py
+```
+
+This merges `feedback_store.csv` with the original training dataset (`DATASET_PATH`, default `dataset.csv`), retrains the TF-IDF vectorizer, LinearSVC model and label encoder, and overwrites `linear_svm_model.pkl`, `tfidf_vectorizer.pkl` and `label_encoder.pkl`.
+
+---
+
 ## 🔐 Features
 
 * ✅ Spam / Smishing Detection
@@ -310,6 +362,64 @@ email_id, subject, sender, is_spam, timestamp
 *  More accuracy and advanced model 
 * Include Email predicton perfectly and add mobile numbers also to track
 * Include Url prediction perfectly to check url is safe or not
+
+---
+
+## 🐳 Running with Docker
+
+### Prerequisites
+- [Docker](https://docs.docker.com/get-docker/) installed
+- [Docker Compose](https://docs.docker.com/compose/install/) installed
+
+### Docker Hub Images
+
+Pre-built images are available — no build step required:
+
+| Service | Docker Hub |
+|---|---|
+| Flask ML API | [rudra2006/spam-ml-api](https://hub.docker.com/r/rudra2006/spam-ml-api) |
+| Node.js Backend | [rudra2006/spam-node-backend](https://hub.docker.com/r/rudra2006/spam-node-backend) |
+| React Frontend | [rudra2006/spam-frontend](https://hub.docker.com/r/rudra2006/spam-frontend) |
+
+### Quick Start (New Users — No Clone Needed)
+
+Images are pre-built on Docker Hub. Just download the compose file and run:
+
+```bash
+curl -O https://raw.githubusercontent.com/Userunknown84/Spam-Detection-System/main/docker-compose.yml
+docker-compose up
+```
+
+Docker will automatically pull all 3 images. No build step, no clone required.
+
+### Quick Start (From Source)
+
+```bash
+git clone https://github.com/Userunknown84/Spam-Detection-System.git
+cd Spam-Detection-System
+docker-compose up --build
+```
+
+| Service | URL |
+|---|---|
+| React Frontend | http://localhost |
+| Node.js Backend | http://localhost:3000 |
+| Flask ML API | http://localhost:5000 |
+
+### Stop all containers
+```bash
+docker-compose down
+```
+
+### Architecture in Docker
+
+```
+Browser → nginx (port 80) → node-backend (port 3000) → ml-api (port 5000)
+```
+
+- **ml-api**: Python Flask service that loads the SVM model and serves `/predict`
+- **node-backend**: Node.js API gateway forwarding requests to ml-api
+- **frontend**: React app built with Vite, served via nginx; nginx proxies `/predict` to node-backend
 
 ---
 
