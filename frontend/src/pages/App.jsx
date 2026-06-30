@@ -19,7 +19,6 @@ import BulkSpamDetection from "../components/BulkSpamDetection";
 import SpamInsightsDashboard from "../components/SpamInsightsDashboard";
 import EmailScannerDashboard from "../components/EmailScannerDashboard";
 import Chatbot from "../components/Chatbot";
-import Footer from "../components/Footer";
 import InstallAppButton from "../components/InstallAppButton";
 import RulesManager from "../components/RulesManager";
 
@@ -704,7 +703,6 @@ function App() {
           </div>
         </div>
       </div>
-      <Footer darkMode={isDark} />
       <Chatbot />
     </div>
   );
